@@ -4,3 +4,21 @@ install/
 log/
 __pycache__/
 *.pyc
+
+## 학습 데이터셋 제외
+src/warehouse/warehouse/manipulator/coco_dataset
+src/warehouse/warehouse/manipulator/dataset
+src/warehouse/warehouse/manipulator/dataset_26
+
+# 사전학습 모델 제외
+src/warehouse/warehouse/manipulator/yolo26m-seg.pt
+src/warehouse/warehouse/manipulator/yolo26n.pt
+src/warehouse/warehouse/manipulator/yolo26s-seg.pt
+
+# 학습 결과 제외
+src/warehouse/warehouse/manipulator/output
+src/warehouse/warehouse/manipulator/output_yolo26
+
+# DB 제외
+src/warehouse/warehouse/db/tycoon-9ef3a-firebase-adminsdk-fbsvc-bd2a330770.json
+

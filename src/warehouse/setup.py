@@ -24,6 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'test_node = warehouse.db.test_node:main',
+            'detection_node = warehouse.manipulator.detection_node:main',
         ],
     },
 )
