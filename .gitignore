@@ -22,3 +22,25 @@ src/warehouse/warehouse/manipulator/output_yolo26
 # DB 제외
 src/warehouse/warehouse/db/tycoon-9ef3a-firebase-adminsdk-fbsvc-bd2a330770.json
 
+*.jpg
+*.png
+*.cache
+src/warehouse/warehouse/manipulator/fragile/train/images
+src/warehouse/warehouse/manipulator/fragile/train/labels
+src/warehouse/warehouse/manipulator/fragile/valid
+src/warehouse/warehouse/manipulator/yolo_env
+yolo11n.pt
+yolov8n.pt
+yolo11s.pt
+yolov8s.pt
+yolo26n.pt
+epoch*.pt
+README*.txt
+
+src/warehouse/warehouse/manipulator/camera.py
+src/warehouse/warehouse/manipulator/test.py
+src/warehouse/warehouse/manipulator/train_yolo8.py
+src/warehouse/warehouse/manipulator/train_yolo11.py
+src/warehouse/warehouse/manipulator/yolov11/fragile_11_train
+src/warehouse/warehouse/manipulator/fragile
+last.pt
