@@ -16,17 +16,13 @@ from omni.isaac.core.objects import DynamicCuboid, DynamicSphere
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-world = World(
-    stage_units_in_meters=1.0
-)
+world = World(stage_units_in_meters=1.0)
 world.scene.clear()
 
 
 #bring usd file
-#bs = BaseSample()
-#self = "/home/rokey/isaacsim/exts/isaacsim.examples.interactive/isaacsim/examples/interactive/hello_world/back.usd"
 
-background_usd = "/home/rokey/conveyer_test.usd"
+background_usd = "/home/rokey/Rokey6-A1-Isaac-simulation-project/src/warehouse/warehouse/manipulator/conveyer_test.usd"
 
 add_reference_to_stage(usd_path=background_usd, prim_path="/World/Background")
 
@@ -68,10 +64,13 @@ cube = world.scene.add(
 )
 
 
-# 로봇 불러오기 + 컨트롤러 생성
+# 물체 불러오기
+box = world.scene.get_object("box")
 
 robot = world.scene.get_object("ur10_long_suction")
 print(robot) 
+
+# 컨트롤러 생성
 
 my_controller = PickPlaceController(
             name="pick_place_controller", 
@@ -79,21 +78,25 @@ my_controller = PickPlaceController(
             robot_articulation=robot
         )
 
-'''
+# ★ 반드시 reset 후 step 한 번 해서 초기화
+world.reset()
+world.step(render=True)  # 이 시점에 articulation 초기화 완료
+
 # 액션 생성
-box = world.scene.get_object("box")
-print(box.get_world_pose())
 
 placing = np.array([-0.35668085634140223, -0.16320017128181238, 1])
 _end_effector_offset = np.array([0, 0, 0.02])
-
+box_position, box_orientation = box.get_world_pose()
+print("box position: ", box_position)
 actions = my_controller.forward(
-            picking_position=box.get_world_pose(),
+            picking_position=box_position,
             placing_position=placing,
             current_joint_positions=robot.get_joint_positions(),
             end_effector_offset=_end_effector_offset,
         )
-        '''
+
+articulation_controller = robot.get_articulation_controller()
+
 # 외부 루프 (총 4 사이클 실행)
 for i in range(4):
     print("running cycle: ", i)
@@ -106,6 +109,7 @@ for i in range(4):
     # 사이클 2: "stopping"
     if i == 2:
         print("stopping")
+        articulation_controller.apply_action(actions)
         
     
     # 내부 루프 (각 사이클마다 100번의 시뮬레이션 스텝 실행)
