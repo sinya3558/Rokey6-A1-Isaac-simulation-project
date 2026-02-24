@@ -7,10 +7,13 @@ import carb
 from omni.isaac.core import World
 # from isaacsim.core.api import World
 
+import omni.usd
+
 from omni.isaac.core.objects import VisualSphere
 # from omni.isaac.core.prims import RigidPrim
 from isaacsim.robot.manipulators import SingleManipulator
 from isaacsim.robot.manipulators.grippers import SurfaceGripper
+# from isaacsim.robot.surface_gripper.utils import get_gripper_status
 from isaacsim.core.utils.stage import add_reference_to_stage
 from isaacsim.core.utils.rotations import euler_angles_to_quat
 import isaacsim.robot_motion.motion_generation as mg
@@ -41,6 +44,14 @@ world = World(stage_units_in_meters=1.0)
 background_usd = "/home/rokey/Rokey6-A1-Isaac-simulation-project/src/warehouse/warehouse/manipulator/conveyer_test.usd" 
 add_reference_to_stage(usd_path=background_usd, prim_path="/World/Background")
 world.scene.add_default_ground_plane()
+
+# 조명 설정
+from pxr import Sdf, UsdLux
+stage = omni.usd.get_context().get_stage()
+distantLight = UsdLux.DistantLight.Define(stage, Sdf.Path("/DistantLight"))
+distantLight.CreateIntensityAttr(300)
+
+# 카메라 위치 및 방향 설정 (장애물과 작업 공간이 잘 보이도록 조정)
 set_camera_view(
     eye=[3.0, -2.2, 1.7], target=[0.82, -0.91, 0.95], camera_prim_path="/OmniverseKit_Persp"
 )
@@ -50,6 +61,11 @@ EE_LINK_PATH = "/World/Background/ur10_conveyor/ur10_short_suction/ee_link"
 SURFACE_GRIPPER_PATH = f"{EE_LINK_PATH}/SurfaceGripper"
 ROBOT_ROOT_PATH = "/World/Background/ur10_conveyor/ur10_short_suction"
 
+
+PAL_EE_LINK_PATH = "/World/Background/ur10_palletizing/ur10_long_suction/ee_link"
+PAL_SURFACE_GRIPPER_PATH = f"{PAL_EE_LINK_PATH}/SurfaceGripper"
+ROBOT_PAL_ROOT_PATH = "/World/Background/ur10_palletizing/ur10_long_suction"
+
 box = world.scene.add(DynamicCuboid(
             prim_path="/World/Background/box", 
             name="box",
@@ -58,6 +74,7 @@ box = world.scene.add(DynamicCuboid(
             mass=0.0001
         ))
 
+# conveyor robot
 gripper = SurfaceGripper(end_effector_prim_path=EE_LINK_PATH, surface_gripper_path=SURFACE_GRIPPER_PATH)
 ur10 = world.scene.add(SingleManipulator(
     prim_path=ROBOT_ROOT_PATH,
@@ -66,9 +83,22 @@ ur10 = world.scene.add(SingleManipulator(
     gripper=gripper
 ))
 
+# palletizing robot
+gripper_pal = SurfaceGripper(end_effector_prim_path=PAL_EE_LINK_PATH, surface_gripper_path=PAL_SURFACE_GRIPPER_PATH)
+ur10_pal = world.scene.add(SingleManipulator(
+    prim_path=ROBOT_PAL_ROOT_PATH,
+    name="ur10_robot_pal",
+    end_effector_prim_path=PAL_EE_LINK_PATH,
+    gripper=gripper_pal
+))
+
 # 초기 자세 설정
 default_joints = np.array([0, -np.pi/2, 0, -np.pi/2, 0, -np.pi/2])
+# default_joints = np.array([0, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, -np.pi/2])
 ur10.set_joints_default_state(positions=default_joints)
+
+default_j = np.array([-np.pi/2, -np.pi/2, np.pi/4, -np.pi/2, -np.pi/2, -np.pi/2])
+ur10_pal.set_joints_default_state(positions=default_j)
 
 # 대상 물체 (박스) 및 시각화 마커
 # box = world.scene.add(RigidPrim(prim_path="/World/Background/box", name="box_target"))
@@ -78,13 +108,19 @@ ee_visual = world.scene.add(VisualSphere(prim_path="/World/visual_ee", name="v_e
 
 world.reset()
 
-# 컨트롤러 초기화
+# ur10 컨트롤러 초기화
 rmp_controller = UR10RMPController("ur10_rmp", ur10)
 articulation_controller = ur10.get_articulation_controller()
+
+# ur10_pal 컨트롤러 초기화
+rmp_controller_pal = UR10RMPController("ur10_pal_rmp", ur10_pal)
+articulation_controller_pal = ur10_pal.get_articulation_controller()
 
 # =================================================================================
 # 3. 유틸리티 함수 및 상태 변수
 # =================================================================================
+
+# ur10 이동 함수 (RMPFlow 사용, 장애물 회피 및 흡착 최적화)
 def move_to(target_pos, target_ori_euler=np.array([-np.pi/2, np.pi/2, 0])):
     target_quat = euler_angles_to_quat(target_ori_euler)
     # RMPFlow를 사용하여 장애물을 우회하는 관절 궤적 계산
@@ -95,12 +131,45 @@ def move_to(target_pos, target_ori_euler=np.array([-np.pi/2, np.pi/2, 0])):
     curr_joints = ur10.get_joint_positions()
     return np.all(np.abs(curr_joints - actions.joint_positions) < 0.005)
 
+# ur10_pal 이동 함수 (RMPFlow 사용, 장애물 회피 및 흡착 최적화)
+def move_to_pal(target_pos, target_ori_euler=np.array([-np.pi/2, np.pi/2, 0])):
+    target_quat = euler_angles_to_quat(target_ori_euler)
+    # RMPFlow를 사용하여 장애물을 우회하는 관절 궤적 계산
+    actions = rmp_controller_pal.forward(target_end_effector_position=target_pos, target_end_effector_orientation=target_quat)
+    articulation_controller_pal.apply_action(actions)
+
+    # 도달 확인 로직 (관절 오차 기준)
+    curr_joints = ur10_pal.get_joint_positions()
+    return np.all(np.abs(curr_joints - actions.joint_positions) < 0.005)
+
 # 설정값
 placing_pos = np.array([-0.35, -0.16, 1.0]) 
 BOX_HALF_SIZE = 0.15  # 박스 스케일 0.3의 절반 (중심에서 표면까지 거리)
 # BOX_HALF_SIZE = 0.05  # 박스 스케일 0.1의 절반 (중심에서 표면까지 거리)
+palletizing_pos = np.array([-2.69, 0.77, 0.61])
 task_phase = 0
 wait_steps = 0
+
+# 로봇 조인트 제어
+from omni.isaac.core.utils.types import ArticulationAction
+
+def move_to_joint_positions(target_joints):
+    action = ArticulationAction(joint_positions=target_joints)
+    articulation_controller.apply_action(action)
+    curr_joints = ur10.get_joint_positions()
+    return np.all(np.abs(curr_joints - target_joints) < 0.005)
+
+
+
+# 박스 프림 경로
+from pxr import Usd
+import omni.usd
+
+stage = omni.usd.get_context().get_stage()
+
+box_prim = stage.GetPrimAtPath("/World/Background/box")
+fragile_prim = stage.GetPrimAtPath("/World/Background/fragile_box")
+print(fragile_prim)
 
 # =================================================================================
 # 4. 시뮬레이션 루프
@@ -110,23 +179,29 @@ while simulation_app.is_running():
     if not world.is_playing(): continue
 
     # 현재 정보 갱신
-    box_pos, _ = box.get_world_pose()
-    box_pos, _ = box.get_world_pose()
+    # box_pos, _ = box.get_world_pose()
     ee_pos, _ = ur10.gripper.get_world_pose()
     ee_visual.set_world_pose(position=ee_pos)
 
     # 상태 머신 (State Machine)
     if task_phase == 0: # 1. 박스 상공 접근 (장애물 회피 이동)
+        box_pos, _ = box.get_world_pose()
         target_pos = box_pos + np.array([0, 0, BOX_HALF_SIZE + 0.2])
         # target_pos = box_pos + np.array([0, 0, BOX_HALF_SIZE + 0.05])
         target_visual.set_world_pose(position=target_pos)
+        
         if move_to(target_pos):
             print("Phase 0 완료: 박스 상공 도달")
             task_phase = 1
 
     elif task_phase == 1: # 2. 박스 표면 밀착 (흡착 최적화)
+        box_pos, _ = box.get_world_pose()
         target_pos = box_pos + np.array([0, 0, BOX_HALF_SIZE- 0.001]) 
         target_visual.set_world_pose(position=target_pos)
+        
+        # current_joints = ur10.get_joint_positions()
+        # print("Current Joint Positions:", current_joints)
+
         if move_to(target_pos):
             print("Phase 1 완료: 박스 접촉")
             ur10.gripper.close() # 석션 작동
@@ -135,16 +210,21 @@ while simulation_app.is_running():
 
     elif task_phase == 2: # 3. 흡착 대기 (그리퍼 성능 보장)
         wait_steps += 1
-        if wait_steps > 300: # 약 0.5초 대기하여 물리적 결합 보장
+        if wait_steps > 30: # 약 0.5초 대기하여 물리적 결합 보장
             print("Phase 2 완료: 흡착 안정화")
             ur10.gripper.close() # 석션 작동
             task_phase = 3
             wait_steps = 0
+            if box_prim.IsValid():
+                box.set_visibility(False)
+                box.disable_rigid_body_physics()
 
     elif task_phase == 3: # 4. 박스 리프팅 (장애물 회피 리프팅)
+        box_pos, _ = box.get_world_pose()
         target_pos = box_pos + np.array([0, 0, BOX_HALF_SIZE + 0.3])
         target_visual.set_world_pose(position=target_pos)
         if move_to(target_pos):
+            # get_gripper_status(prim_path=SURFACE_GRIPPER_PATH)
             print("Phase 3 완료: 박스 들어올리기 성공")
             task_phase = 4
 
@@ -157,10 +237,15 @@ while simulation_app.is_running():
 
     elif task_phase == 5: # 6. 내려놓기 (Place Down)
         target_pos = placing_pos
+        target_pos[1] = 0.0
         target_visual.set_world_pose(position=target_pos)
         if move_to(target_pos):
             print("Phase 5 완료: 하강 성공")
             task_phase = 6
+            if box_prim.IsValid():
+                box.set_world_pose(position=target_pos)
+                box.set_visibility(True)
+                box.enable_rigid_body_physics()
 
     elif task_phase == 6: # 7. 그리퍼 해제 (Release)
         ur10.gripper.open()
@@ -171,8 +256,17 @@ while simulation_app.is_running():
             wait_steps = 0
 
     elif task_phase == 7: # 8. 홈 위치로 복귀
-        if move_to(placing_pos + np.array([0, 0, 0.2])):
+        if move_to_joint_positions(np.array([0, -np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, -np.pi/2])):
             print("모든 시퀀스 종료")
             task_phase = 8
+            # break
+
+    elif task_phase == 8: # 9
+        print("팔레타이징 시작")
+        box_pos, _ = box.get_world_pose()
+        target_pos = box_pos + np.array([0, 0, BOX_HALF_SIZE + 0.2])
+        if move_to_pal(target_pos):
+            print("상자 위로 이동")
+            task_phase = 9
 
 simulation_app.close()
