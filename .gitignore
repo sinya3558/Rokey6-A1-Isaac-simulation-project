@@ -44,3 +44,7 @@ src/warehouse/warehouse/manipulator/train_yolo11.py
 src/warehouse/warehouse/manipulator/yolov11/fragile_11_train
 src/warehouse/warehouse/manipulator/fragile
 last.pt
+
+
+# usd 파일 제외
+src/warehouse/warehouse/amr/usd

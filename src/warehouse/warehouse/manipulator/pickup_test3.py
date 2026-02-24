@@ -38,7 +38,7 @@ class UR10RMPController(mg.MotionPolicyController):
 world = World(stage_units_in_meters=1.0)
 
 # 배경 및 환경 로드
-background_usd = "/home/rokey/conveyer_test.usd" 
+background_usd = "/home/rokey/Rokey6-A1-Isaac-simulation-project/src/warehouse/warehouse/manipulator/conveyer_test.usd" 
 add_reference_to_stage(usd_path=background_usd, prim_path="/World/Background")
 world.scene.add_default_ground_plane()
 set_camera_view(
