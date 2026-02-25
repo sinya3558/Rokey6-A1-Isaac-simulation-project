@@ -47,6 +47,7 @@ amcl:
       y: 1.47697
       z: 0.1
       yaw: 0.0
+      
 
 
 amcl_map_client:
