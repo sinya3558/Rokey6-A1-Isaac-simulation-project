@@ -1,6 +1,6 @@
 # GOAL
-string pallet_id
-uint8 fragile_count
+string pallet_id   
+uint8 fragile_count 
 uint8 normal_count
 ---
 # RESULT
@@ -10,4 +10,4 @@ string message
 # FEEDBACK
 uint8 fragile_loaded
 uint8 normal_loaded
-string status
+string status   # manipulator : picking up, moving, placing, done
