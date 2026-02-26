@@ -32,7 +32,7 @@ def generate_launch_description():
     map_dir = LaunchConfiguration(
         "map",
         default=os.path.join(
-            get_package_share_directory("iw_navigation"), "maps", "A1_warehouse_navigation.yaml"
+            get_package_share_directory("iw_navigation"), "maps", "A1_warehouse_map_final.yaml"
         ),
     )
 
