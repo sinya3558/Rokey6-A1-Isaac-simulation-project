@@ -1,0 +1,13 @@
+# GOAL
+string pallet_id
+uint8 fragile_count
+uint8 normal_count
+---
+# RESULT
+bool success
+string message
+---
+# FEEDBACK
+uint8 fragile_loaded
+uint8 normal_loaded
+string status
