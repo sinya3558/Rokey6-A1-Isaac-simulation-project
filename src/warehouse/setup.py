@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'test_node = warehouse.db.test_node:main',
             'detection_node = warehouse.manipulator.detection_node:main',
+            'controller = warehouse.controller.main_control_node:main',
         ],
     },
 )
